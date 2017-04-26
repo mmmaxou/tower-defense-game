@@ -1,0 +1,7 @@
+.hr {
+	@include hr ($color-main);
+	&.hr-padding {
+		width: 80%;
+		@extend .center-h;
+	}
+}

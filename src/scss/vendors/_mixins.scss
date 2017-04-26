@@ -1,0 +1,13 @@
+@mixin box-shadow($value) {
+	-webkit-box-shadow: $value;
+	-moz-box-shadow: $value;
+	-ms-box-shadow: $value;
+	box-shadow: $value;
+}
+
+@mixin hr($color) {
+	width: 100%;
+	height: 3px;
+	display: inline-block;
+	background-color: $color;
+}

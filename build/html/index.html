@@ -1,0 +1,98 @@
+<!doctype html>
+
+<html lang="en">
+
+<head>
+    <meta charset="utf-8">
+
+    <title>Game</title>
+    <meta name="description" content="Base site">
+    <meta name="author" content="mmmaxou">
+
+    <link rel="stylesheet" type="text/css" href="build/css/main.css">
+    <link rel="stylesheet" type="text/css" href="build/css/main.css">
+
+</head>
+
+<body>
+    <header>
+    </header>
+
+    <div id="full-body">
+    </div>
+
+    <div class="main">
+
+        <div class="connection">
+
+            <p class="huge">NoName</p>
+            <p class="sub">Start the game</p>
+
+        </div>
+        <div class="game" style="display:none;">
+
+            <canvas id="ctx" width="500" height="500" style="border:1px solid #000000;">
+			</canvas>
+            <div class="display">
+                <p>Score : <span id="score">0</span></p>
+                <p>Upgrade points : <span id="upgrade-point">0</span></p>
+
+                <div id="left-wrapper">
+                    <div class="hr hr-padding"></div>
+                    <div id="pattern" class="wrapper">
+                        <p class="wrapper-title">
+                            <span>Pattern</span>
+                            <a class="btn btn-close"></a>
+                        </p>
+                    </div>
+                </div>
+
+            </div>
+
+        </div>
+    </div>
+
+
+
+
+
+
+    <!--Chat and Connect-->
+    <div id="bottom-wrapper">
+        <div class="hr hr-padding"></div>
+        <div id="chat" class="wrapper" style="display:none;">
+            <p class="wrapper-title">Chat<span class="float-right"><a class="btn btn-close"></a></span></p>
+            <div class="container">
+                <div class="row line">
+                    <div class="col-xs-12" id='chat-text'>
+                        <p>> Chat</p>
+                    </div>
+                </div>
+                <form class="row line line-flex">
+                    <input type="text" class="elt-grow">
+                    <input type="submit" value="Envoyer" class="btn btn-main">
+                </form>
+            </div>
+        </div>
+        <div id="connect" class="wrapper">
+            <p class="wrapper-title">Connexion statut<span class="float-right"><a class="btn btn-close"></a></span></p>
+            <div class="line">
+                <input type="text" placeholder="Votre compte" id="username">
+                <input type="password" placeholder="Mot de passe" id="password">
+                <input type="button" class="btn btn-default" id="sign-in" value="Se connecter">
+            </div>
+            <div class="line">
+                <p>Pas encore de compte ?</p>
+                <input type="button" class="btn btn-main" id="sign-up" value="S'enregistrer">
+            </div>
+        </div>
+    </div>
+
+    <!--Scripts-->
+    <script src="build/js/jquery-3.2.0.min.js"></script>
+    <script src="build/js/socket.io.min.js"></script>
+    <script src="build/js/main.js" type="text/javascript"></script>
+    <script src="build/js/bundle.js" type="text/javascript"></script>
+</body>
+
+</html>

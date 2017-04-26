@@ -1,0 +1,19 @@
+.wrapper {
+    padding: 15px;
+    .wrapper-title {
+        font-size: $font-size-big;
+        cursor: pointer;
+        background-color: white;
+        border-radius: $border-radius;
+        padding: $padding-big;
+        margin-bottom: $margin-simple;
+        &:before {
+            font-size: $font-size;
+            color: #e29e23;
+            content: '# ';
+        }
+    }
+    .wrapper-title.changed:before {
+        content: '';
+    }
+}

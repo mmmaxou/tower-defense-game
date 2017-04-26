@@ -1,0 +1,13 @@
+input {
+	height: 35px;
+	min-width: 35px;
+	border: 1px solid $color-default;
+	border-radius: $border-radius;
+	box-sizing: border-box;
+	font-family: $font-main;
+	font-size: $font-light;
+	padding: 0px $padding-simple;
+	&.block {
+		display: inline-block;
+	}
+}

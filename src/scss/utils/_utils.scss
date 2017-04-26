@@ -1,0 +1,17 @@
+.float-left {
+	float: left;
+}
+
+.float-right {
+	float: right;
+}
+
+.huge {
+	font-size: $font-size-huge;
+}
+
+.center-h {
+	position: absolute;
+	transform: translateX(-50%);
+	left: 50%;
+}

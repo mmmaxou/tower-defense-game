@@ -1,0 +1,55 @@
+#bottom-wrapper {
+    display: block;
+    position: fixed;
+    bottom: 0;
+    width: 100vw;
+    //	overflow-y: scroll;
+    background-color: rgba(255, 255, 255, 0.3);
+    &:before {
+        @include hr ($color-main);
+    }
+}
+
+#left-wrapper {
+    display: block;
+    position: fixed;
+    left: 0;
+    top: 50px;
+    width: auto;
+    height: 400px;
+    //	overflow-y: scroll;
+    background-color: rgba(255, 255, 255, 0.3);
+    &:before {
+        @include hr ($color-main);
+    }
+}
+
+.line {
+    text-align: center;
+    margin-bottom: $margin-simple;
+    &>* {
+        display: inline-block;
+    }
+    &.line-flex {
+        display: flex;
+    }
+    .elt-grow {
+        flex-grow: 1;
+    }
+}
+
+#full-body {
+    width: 100vw;
+    height: 100vh;
+    overflow: hidden;
+    position: absolute;
+    top: 0;
+    left: 0;
+    z-index: -1;
+}
+
+.display {
+    position: fixed;
+    top: 15px;
+    left: 15px;
+}

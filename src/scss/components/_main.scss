@@ -1,0 +1,33 @@
+.main {
+	display: flex;
+	flex-direction: column;
+	justify-content: center;
+	align-items: center;
+	font-family: $font-main;
+	height: 100vh;
+	.huge {
+		&:before {
+			content: '[';
+		}
+		&:after {
+			content: ']';
+		}
+	}
+	.sub {
+		font-size: $font-size-very-big;
+		text-align: center;
+		transition: all 200ms ease;
+		cursor: pointer;
+		&:hover {
+			transform: translateY(-5px);
+			&:before {
+				transform: translateX(-10px) scale(1.3);
+			}
+		}
+		&:before {
+			transition: all 200ms ease;
+			content: '> ';
+			display: inline-block;
+		}
+	}
+}
