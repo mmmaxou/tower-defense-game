@@ -14283,7 +14283,7 @@ socket = io.connect({
     'reconnectionDelay': 500,
     'reconnectionAttempts': 10
 })
-var toastr = require('toastr')
+toastr = require('toastr')
 toastr.options = {
     "closeButton": true,
     "debug": false,

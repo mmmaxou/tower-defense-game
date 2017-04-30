@@ -99,6 +99,9 @@ var User = function (socket) {
     self.buyUpgrade = function (upgradeName) {
         var list = self.tree.getAvailableUpgrades()
         if (list[upgradeName] === undefined) {
+            socket.emit('buyResult', {
+                success: "unavailable"
+            })
             return
         }
         if (self.canAfford(list[upgradeName])) {
@@ -106,8 +109,14 @@ var User = function (socket) {
             var upgrade = self.tree.upgrades[upgradeName]
             self.deployUpgrade(upgrade)
             self.changeUpgradePoint(upgrade.cost * -1)
+            socket.emit('buyResult', {
+                success: true
+            })
         } else {
             console.log("Can't afford the upgrade")
+            socket.emit('buyResult', {
+                success: "unaffordable"
+            })
         }
     }
     self.canAfford = function (upgrade) {
@@ -212,10 +221,10 @@ var Tree = function () {
         module: "Mod_lifeManagement",
         options: {
             hall: {
-                hpMax: 4
+                hpMax: 5
             },
             minion: {
-                hpMax: 2
+                hpMax: 3
             }
         }
     })
@@ -462,19 +471,11 @@ var Minion = function (parent) {
     self.parentId = parent.id
     self.spdX = 0
     self.spdY = 0
-    self.speed = 2;
-    self.findHallStrategy = 'closest'
-    self.findMinionStrategy = 'closest'
-    self.ennemyHall = null
-    self.target = null
+    self.speed = 2
     self.size = 1
-    self.attackRange = 3
     self.entityType = "minion"
     self.parent = function () {
         return Hall.list[self.parentId]
-    }
-    self.getEnnemyHall = function () {
-        return Hall.list[self.ennemyHall]
     }
 
     //randomize spawn position
@@ -496,6 +497,19 @@ var Minion = function (parent) {
             counterAttackRange: 4
         }
     }) // Mod_getAttacked
+    self.module.push({
+        name: "Mod_attack",
+        options: {
+            attackRange: 3
+        }
+    }) // Mod_attack
+    self.module.push({
+        name: "Mod_cooldown",
+        options: {
+            cooldown: 50
+        }
+    }) // Mod_attack
+
     if (parent.minionsModules.length >= 1) {
         parent.minionsModules.forEach(function (module) {
             var newModule = JSON.parse(JSON.stringify(module))
@@ -503,130 +517,19 @@ var Minion = function (parent) {
             self.module.push(newModule)
         })
     }
-    var super_update = self.update
+    self.super_update = self.update
     self.update = function () {
+        self.checkRemove()
+        self.super_update()
+    }
+
+    self.checkRemove = function () {
         if (self.toRemove) {
             self.delete()
         }
         if (self.parent() == undefined) {
             self.delete()
         }
-        self.findTarget()
-        self.moveToTarget()
-        self.targetInRange()
-        super_update()
-    }
-
-    self.hasTarget = function () {
-        if (!self.target) {
-            return false
-        } else {
-            if (self.target.toRemove) {
-                self.target = null
-                return false
-            }
-            return true
-        }
-    }
-
-    self.findEnnemyHall = function () {
-
-        for (var h in Hall.list) {
-            var hall = Hall.list[h]
-            if (hall.id != self.parent().id) {
-                self.ennemyHall = hall.id
-            }
-        }
-
-    }
-    self.findEnnemyMinion = function () {
-        if (!self.getEnnemyHall()) {
-            return
-        }
-
-        var list = self.getEnnemyHall().minions
-
-        var min = undefined;
-        var found = undefined;
-
-        for (var i in Minion.list) {
-            var minion = Minion.list[i]
-            if (minion.parent() != self.parent()) {
-                var d = self.getDistance(minion)
-                if (min == undefined) {
-                    found = minion;
-                    min = d
-                } else if (min > d) {
-                    found = minion;
-                    min = d
-                }
-            }
-        }
-
-        if (found) {
-            self.target = found
-            return true
-        }
-        return false
-
-    }
-
-    self.findTarget = function () {
-
-        if (!self.ennemyHall) {
-            self.findEnnemyHall()
-        }
-        if (!self.getEnnemyHall()) {
-            return
-        }
-
-        if (!self.findEnnemyMinion()) {
-            self.target = self.getEnnemyHall()
-        }
-
-    }
-
-    self.moveToTarget = function () {
-        if (!self.target) {
-            self.spdX = 0
-            self.spdY = 0;
-            return
-        }
-
-        //Angle toward target
-        var deltaX = self.target.x - self.x
-        var deltaY = self.target.y - self.y
-        var angle = Math.atan2(deltaY, deltaX) * (180 / Math.PI)
-
-        // Add movement
-        self.spdX = Math.cos(angle / 180 * Math.PI) * self.speed
-        self.spdY = Math.sin(angle / 180 * Math.PI) * self.speed
-
-    }
-    self.targetInRange = function () {
-        if (!self.target) return;
-        var dist = self.getDistance(self.target)
-        if (dist < self.attackRange + 3 * self.size) {
-            self.attackTarget()
-        }
-    }
-
-    self.attackTarget = function () {
-        if (!self.target) {
-            return
-        }
-        if (self.target.id == self.id) {
-            self.target = null
-            return
-        }
-        if (self.target.entityType == "hall") {
-            //console.log("I attack a hall")
-        }
-        self.target.getAttacked(self)
-    }
-
-    self.getKillReward = function (ennemyKilled) {
-        //console.log(ennemyKilled.killReward)
     }
 
     self.getInitPack = function () {
@@ -708,6 +611,7 @@ var Modules = {
                 return
             }
             // Try to counter
+
             if (self.canCounterAttack) {
                 self.counterAttack(attacker)
             }
@@ -721,7 +625,7 @@ var Modules = {
                 return
             }
             var dist = self.getDistance(attacker)
-            if (dist < self.counterAttackRange + 3 * self.size) {
+            if (dist < self.counterAttackRange + (3 * self.size)) {
                 attacker.canCounterAttack = false
                 attacker.getAttacked(self)
             }
@@ -748,23 +652,188 @@ var Modules = {
                 self.delete()
             }
         }
-        super_getUpdatePack = self.getUpdatePack
+        self.lifeManagement_getUpdatePack = self.getUpdatePack
         self.getUpdatePack = function () {
-            var pack = super_getUpdatePack()
+            var pack = self.lifeManagement_getUpdatePack()
             pack.hp = self.hp
             pack.hpMax = self.hpMax
             return pack
         }
-        super_getInitPack = self.getInitPack
+        self.lifeManagement_getInitPack = self.getInitPack
         self.getInitPack = function () {
-            var pack = super_getInitPack()
+            var pack = self.lifeManagement_getInitPack()
             pack.hp = self.hp
             pack.hpMax = self.hpMax
             return pack
         }
         return self;
-
     },
+    Mod_attack: function (parent, options = {}) {
+        var self = parent
+
+        self.findHallStrategy = options.findHallStrategy || 'closest'
+        self.findMinionStrategy = options.findMinionStrategy || 'closest'
+        self.ennemyHall = null
+        self.target = null
+        self.attackRange = options.attackRange || self.size * 3
+
+        self.update = function () {
+            self.checkRemove()
+
+            self.findTarget()
+            self.moveToTarget()
+
+            self.super_update()
+        }
+
+        self.getEnnemyHall = function () {
+            return Hall.list[self.ennemyHall]
+        }
+        self.attackTarget = function () {
+            if (!self.target) {
+                return
+            }
+            if (self.target.id == self.id) {
+                self.target = null
+                return
+            }
+            if (self.target.entityType == "hall") {
+                //console.log("I attack a hall")
+            }
+            self.target.getAttacked(self)
+        }
+        self.getKillReward = function (ennemyKilled) {
+            //console.log(ennemyKilled.killReward)
+        }
+        self.hasTarget = function () {
+            if (!self.target) {
+                return false
+            } else {
+                if (self.target.toRemove) {
+                    self.target = null
+                    return false
+                }
+                return true
+            }
+        }
+        self.findEnnemyHall = function () {
+
+            for (var h in Hall.list) {
+                var hall = Hall.list[h]
+                if (hall.id != self.parent().id) {
+                    self.ennemyHall = hall.id
+                }
+            }
+
+        }
+        self.findEnnemyMinion = function () {
+            if (!self.getEnnemyHall()) {
+                return
+            }
+
+            var list = self.getEnnemyHall().minions
+
+            var min = undefined;
+            var found = undefined;
+
+            for (var i in Minion.list) {
+                var minion = Minion.list[i]
+                if (minion.parent() != self.parent()) {
+                    var d = self.getDistance(minion)
+                    if (min == undefined) {
+                        found = minion;
+                        min = d
+                    } else if (min > d) {
+                        found = minion;
+                        min = d
+                    }
+                }
+            }
+
+            if (found) {
+                self.target = found
+                return true
+            }
+            return false
+
+        }
+        self.findTarget = function () {
+
+            if (!self.ennemyHall) {
+                self.findEnnemyHall()
+            }
+            if (!self.getEnnemyHall()) {
+                return
+            }
+
+            if (!self.findEnnemyMinion()) {
+                self.target = self.getEnnemyHall()
+            }
+
+        }
+        self.targetInRange = function () {
+            if (!self.target) return;
+
+            var dist = self.getDistance(self.target)
+            if (dist < self.attackRange + 3 * self.size) {
+                if (self.tryAction != undefined) {
+                    self.tryAction(self.attackTarget)
+                } else {
+                    self.attackTarget()
+                }
+                return true
+            } else {
+                return false
+            }
+        }
+        self.moveToTarget = function () {
+            if (!self.target) {
+                self.spdX = 0
+                self.spdY = 0;
+                return
+            }
+
+            // If target is in tange , don't move
+            if (self.targetInRange()) {
+                self.spdX = 0
+                self.spdY = 0;
+                return
+            }
+
+            //Angle toward target
+            var deltaX = self.target.x - self.x
+            var deltaY = self.target.y - self.y
+            var angle = Math.atan2(deltaY, deltaX) * (180 / Math.PI)
+
+            // Add movement
+            self.spdX = Math.cos(angle / 180 * Math.PI) * self.speed
+            self.spdY = Math.sin(angle / 180 * Math.PI) * self.speed
+
+        }
+
+        return self
+    },
+    Mod_cooldown: function (parent, options = {}) {
+        var self = parent
+
+        self.cooldown = options.cooldown || 25
+        self.tick = self.cooldown
+
+        self.tryAction = function (callback) {
+            self.updateTick(callback)
+        }
+        self.updateTick = function (callback) {
+            self.tick--;
+            if (self.tick == 0) {
+                self.tick = self.cooldown;
+                callback()
+            } else {
+                return
+            }
+        }
+
+        return self
+    }
 }
 
 var isValidPassword = function (data, callback) {

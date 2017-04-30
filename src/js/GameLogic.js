@@ -49,7 +49,13 @@ var User = function (initPack) {
     self.buyUpgrade = function (upgrade) {
         socket.emit('buyUpgrade', upgrade)
         socket.on('buyResult', function (data) {
-
+            if (data.success === true) {
+                toastr["success"]("Upgrade bought")
+            } else if (data.success == "unaffordable") {
+                toastr['error']("Can't afford the upgrade")
+            } else if (data.success == "unavailable") {
+                toastr['error']("Upgrade is unavailable")
+            }
         })
     }
 
@@ -173,8 +179,6 @@ var Minion = function (initPack) {
     self.resetMod()
     self.updateMod()
 
-    //    console.log(self)
-
     Minion.list[self.id] = self
     return self
 }
@@ -188,40 +192,72 @@ var Modules = {
         //        console.log(pack)
         self.hpMax = pack.hpMax
         self.hp = pack.hp || self.hpMax
+        self.drawText = false
 
-        super_draw = self.draw
+        var super_draw = self.draw
         self.draw = function () {
+            self.drawLife()
             super_draw()
+        }
+        self.drawLife = function () {
+
             ctx.fillStyle = 'green'
-            for (var i = 1; i <= self.hpMax; i++) {
-                if (i <= self.hp) {
-                    ctx.fillStyle = 'green'
-                } else {
-                    ctx.fillStyle = 'grey'
+
+            if (self.drawText) {
+
+                var text = "" + self.hp + "/" + self.hpMax
+                ctx.fillText(
+                    text,
+                    self.x,
+                    self.y + 5 + self.size)
+            } else {
+
+                for (var i = 1; i <= self.hpMax; i++) {
+                    if (i <= self.hp) {
+                        ctx.fillStyle = 'green'
+                    } else {
+                        ctx.fillStyle = 'grey'
+                    }
+                    var GUTTER = 5
+
+                    var barWidth = self.size * 3 // Taille propre
+                    barWidth = barWidth * 2 // Augmente la taille pour depasser de l'affichage
+                    barWidth = barWidth + GUTTER * self.hpMax
+                    //augmente la taille pour la gouttiere
+
+
+                    var x = barWidth
+                    x = x / self.hpMax
+                    var y = 5;
+
+                    var deltaX = ((x + GUTTER) * (i - 1))
+                    deltaX -= barWidth / 2
+                    deltaX -= self.size
+                    var deltaY = -(self.size * 2) - 10;
+
+                    // Affichage
+                    ctx.fillRect(
+                        self.x + deltaX,
+                        self.y + deltaY,
+                        x,
+                        y
+                    )
+                    //console.log(barWidth, deltaX, deltaY, x, y)
+
                 }
-                var barWidth = self.size * 3 // Taille propre
-                barWidth = barWidth * 2 // Augmente la taille pour depasser de l'affichage
-
-
-                var x = barWidth
-                x = x / self.hpMax
-                var y = 5;
-
-                var deltaX = (x * i - 1) - barWidth / 2 - self.size;
-                var deltaY = -self.size * 2 - 4;
-
-                // Affichage
-                ctx.fillRect(
-                    self.x + deltaX,
-                    self.y + deltaY,
-                    x,
-                    y
-                )
-                //console.log(barWidth, deltaX, deltaY, x, y)
 
             }
+
         }
-        return self;
+        var super_updateFromPack = self.updateFromPack
+        self.updateFromPack = function (updatePack) {
+
+            if (updatePack.hp !== undefined)
+                self.hp = updatePack.hp
+
+            super_updateFromPack(updatePack)
+        }
+
     }
 }
 
@@ -265,6 +301,7 @@ socket.on('update', function (data) {
         user.updateFromPack(data.user)
 
 })
+
 socket.on('hallModule', function (data) {
     var hall = Hall.list[data.id]
     hall.module[data.module.name] = {
@@ -305,12 +342,13 @@ setInterval(function () {
     if (!selfId)
         return
 
-    ctx.clearRect(0, 0, 500, 500)
+    //    ctx.clearRect(0, 0, 500, 500)
     drawMap();
     for (var i in Hall.list)
         Hall.list[i].draw()
     for (var i in Minion.list)
         Minion.list[i].draw()
+
 }, 1000 / 25)
 
 $(document)
