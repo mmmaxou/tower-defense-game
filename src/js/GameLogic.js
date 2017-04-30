@@ -1,5 +1,5 @@
 var ctx = document.getElementById("ctx").getContext("2d");
-ctx.font = '30px Arial';
+ctx.font = '30px Arial'
 
 WIDTH = HEIGHT = 500;
 
@@ -116,7 +116,7 @@ var Hall = function (initPack) {
     self.id = initPack.id
     self.x = initPack.x
     self.y = initPack.y
-    self.size = 10
+    self.size = initPack.size
 
     self.module = initPack.module
 
@@ -152,7 +152,7 @@ var Minion = function (initPack) {
     self.id = initPack.id
     self.x = initPack.x
     self.y = initPack.y
-    self.size = 1
+    self.size = initPack.size
 
     self.module = initPack.module
 
@@ -350,11 +350,11 @@ setInterval(function () {
 
 }, 1000 / 25)
 
+// EVENTS
 $(document)
     .on('keydown', function (e) {
         if (!isValidKey(e.key))
             return
-
         socket.emit('keyPress', {
             key: e.key,
             state: true
@@ -368,6 +368,30 @@ $(document)
             state: false
         })
     })
+$(document).ready(function () {
+    $('#ctx').on('mousedown', function (e) {
+        socket.emit('keyPress', {
+            key: 'click',
+            state: 'true'
+        })
+    })
+    $('#ctx').on('mousemove', function (e) {
+        var x = Math.floor(e.originalEvent.x - $(this).offset().left)
+        var y = Math.floor(e.originalEvent.y - $(this).offset().top)
+
+        //console.log(e)
+        //console.log("x:" + x + "  y:" + y)
+        var pos = {
+            x: x,
+            y: y,
+        }
+        socket.emit('keyPress', {
+            key: 'mousePos',
+            state: pos
+        })
+    })
+
+})
 
 function clickUpgrade(e) {
     var text = e.childNodes[0].textContent

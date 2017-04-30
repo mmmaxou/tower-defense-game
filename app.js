@@ -44,6 +44,43 @@ var position = [
 
 var SOCKET_LIST = {}
 var DEBUG = true;
+var Core = function () {
+    var self = {
+        x: 250,
+        y: 250,
+        size: 5,
+        id: "",
+        toRemove: false,
+        module: [],
+    }
+    self.updateMod = function () {
+        for (var m in self.module) {
+            var module = self.module[m]
+            if (Modules[module.name]) {
+                if (!module.deployed) {
+                    self = Modules[module.name](self, module.options)
+                    module.deployed = true
+                }
+            }
+        }
+    }
+    self.getDistance = function (pt) {
+        return Math.sqrt(Math.pow(self.x - pt.x, 2) + Math.pow(self.y - pt.y, 2))
+    }
+    self.validKeys = []
+    self.keyActive = {}
+    self.getPointOnBody = function (data) {
+        var dist = self.getDistance(data)
+        return dist <= self.size * 3 ? true : false
+    }
+    self.isValidKey = function (data) {
+        return self.validKeys.some(function (e) {
+            return e == data.key
+        })
+    }
+    return self
+}
+
 var User = function (socket) {
     var self = {}
     self.socket = socket
@@ -168,6 +205,24 @@ var User = function (socket) {
         self.socket.emit('update', pack)
 
     }
+    self.handleKey = function (data) {
+        if (!self.isValidKey(data)) {
+            self.hall.handleKey(data)
+            return
+        }
+    }
+
+    self.validKeys = []
+    self.keyActive = {}
+    self.getPointOnBody = function (data) {
+        var dist = self.getDistance(data)
+        return dist <= self.size * 3 ? true : false
+    }
+    self.isValidKey = function (data) {
+        return self.validKeys.some(function (e) {
+            return e == data.key
+        })
+    }
 
     User.list[self.id] = self;
     return self
@@ -185,6 +240,9 @@ User.onConnect = function (socket) {
     socket.on('buyUpgrade', function (data) {
         console.log("Buy upgrade : " + data)
         user.buyUpgrade(data)
+    })
+    socket.on('keyPress', function (data) {
+        user.handleKey(data)
     })
 
     var data = {
@@ -218,7 +276,7 @@ var Tree = function () {
 
     self.upgrades = {}
     self.upgrades.lifeManagement = Upgrade({
-        cost: 1,
+        cost: 25,
         module: "Mod_lifeManagement",
         options: {
             hall: {
@@ -228,6 +286,14 @@ var Tree = function () {
                 hpMax: 3
             }
         }
+    })
+    self.upgrades.moveable = Upgrade({
+        cost: 10,
+        module: "Mod_moveable",
+        options: {
+            hall: {}
+        }
+
     })
 
     self.addUpgrade = function (upgradeName) {
@@ -267,15 +333,9 @@ var Upgrade = function (options) {
 }
 
 var Entity = function () {
-    var self = {
-        x: 250,
-        y: 250,
-        spdX: 0,
-        spdY: 0,
-        id: "",
-        module: [],
-        toRemove: false,
-    }
+    var self = Core()
+    self.spdX = 0
+    self.spdY = 0
     self.update = function () {
         self.updatePosition()
     }
@@ -283,32 +343,13 @@ var Entity = function () {
         self.x += self.spdX;
         self.y += self.spdY;
     }
-    self.getDistance = function (pt) {
-        return Math.sqrt(Math.pow(self.x - pt.x, 2) + Math.pow(self.y - pt.y, 2))
-    }
-    self.updateMod = function () {
-        for (var m in self.module) {
-            var module = self.module[m]
-            if (Modules[module.name]) {
-                if (!module.deployed) {
-                    self = Modules[module.name](self, module.options)
-                    module.deployed = true
-                }
-            }
-        }
-    }
     return self
 }
 
 var Building = function () {
-    var self = {
-        x: 250,
-        y: 250,
-        id: "",
-        cooldown: 25,
-        tick: 25,
-        toRemove: false,
-    }
+    var self = Core()
+    self.cooldown = 25
+    self.tick = 25
     self.update = function () {
         self.updateTick()
     }
@@ -323,20 +364,6 @@ var Building = function () {
     self.action = function () {
         console.log("action")
     }
-    self.getDistance = function (pt) {
-        return Math.sqrt(Math.pow(self.x - pt.x, 2) + Math.pow(self.y - pt.y, 2))
-    }
-    self.updateMod = function () {
-        for (var m in self.module) {
-            var module = self.module[m]
-            if (Modules[module.name]) {
-                if (!module.deployed) {
-                    self = Modules[module.name](self, module.options)
-                    module.deployed = true
-                }
-            }
-        }
-    }
     return self
 }
 var Hall = function (id) {
@@ -347,6 +374,7 @@ var Hall = function (id) {
     self.killed = false
     self.position = 0
     self.entityType = "hall"
+    self.size = 10
     self.user = function () {
         return User.list[self.id]
     }
@@ -355,6 +383,7 @@ var Hall = function (id) {
 
     self.minions = []
     self.minionsModules = []
+    self.super_update = self.update
 
     // Declare modules
     self.module.push({
@@ -365,12 +394,12 @@ var Hall = function (id) {
         }
     }) // Mod_getAttacked
 
-
     self.getInitPack = function () {
         var pack = {
             id: self.id,
             x: self.x,
             y: self.y,
+            size: self.size,
             module: self.module,
         }
         return pack
@@ -390,9 +419,10 @@ var Hall = function (id) {
     self.spawn = function () {
         var minion = Minion(self)
         self.minions.push(minion)
-    };
+    }
 
     // FIND POSITION
+    ;
     (function () {
         for (var p in position) {
             if (position[p].used == false) {
@@ -404,6 +434,20 @@ var Hall = function (id) {
             }
         }
     })()
+
+    self.handleKey = function (data) {
+        if (!self.isValidKey(data)) {
+            self.minions.forEach(function (minion) {
+                minion.handleKey(data)
+            })
+            return
+        }
+    }
+    self.checkRemove = function () {
+        if (self.toRemove) {
+            self.delete()
+        }
+    }
 
     self.updateMod()
     self.delete = function () {
@@ -517,7 +561,7 @@ var Minion = function (parent) {
         options: {
             cooldown: 50
         }
-    }) // Mod_attack
+    }) // Mod_cooldown
 
     if (parent.minionsModules.length >= 1) {
         parent.minionsModules.forEach(function (module) {
@@ -531,7 +575,6 @@ var Minion = function (parent) {
         self.checkRemove()
         self.super_update()
     }
-
     self.checkRemove = function () {
         if (self.toRemove) {
             self.delete()
@@ -540,12 +583,19 @@ var Minion = function (parent) {
             self.delete()
         }
     }
+    self.handleKey = function (data) {
+        if (!self.isValidKey(data)) {
+            // Do something
+            return
+        }
+    }
 
     self.getInitPack = function () {
         return {
             id: self.id,
             x: self.x,
             y: self.y,
+            size: self.size,
             module: self.module,
         }
     }
@@ -618,7 +668,6 @@ var Modules = {
         self.killReward = 1
         self.targettedBy = []
 
-        var super_update = self.update
         self.getAttacked = function (attacker) {
             if (!attacker) {
                 return
@@ -858,6 +907,58 @@ var Modules = {
         }
 
         return self
+    },
+    Mod_moveable: function (parent, options = {}) {
+        var self = parent
+
+        self.validKeys.push('mousePos')
+        self.validKeys.push('click')
+
+        self.keyActive.mousePos = false
+        self.keyActive.click = false
+        self.followMouse = false
+
+        var super_handleKey = self.handleKey
+        self.handleKey = function (data) {
+            super_handleKey(data)
+
+            self.validKeys.forEach(function (key) {
+                if (data.key == key) {
+                    self.keyActive[key] = data.state
+                }
+            })
+
+        }
+
+        self.super_update = self.update
+        self.update = function () {
+            self.updatePosition()
+
+            self.super_update()
+        }
+        self.updatePosition = function () {
+            if (self.keyActive.click && self.followMouse) {
+                self.followMouse = false
+                self.keyActive.click = false
+            }
+
+            if (self.keyActive.click) {
+                var pos = self.keyActive.mousePos
+                if (self.getPointOnBody(pos)) {
+                    self.followMouse = true
+                }
+                self.keyActive.click = false
+            }
+
+
+            if (self.followMouse) {
+                var pos = self.keyActive.mousePos
+                self.x = pos.x
+                self.y = pos.y
+            }
+        }
+
+        return self
     }
 }
 
@@ -965,7 +1066,7 @@ io.sockets.on('connection', function (socket) {
             console.log(res)
         } catch (err) {
             res = "error"
-            throw err
+            console.log(res)
         }
 
         try {
@@ -1036,9 +1137,6 @@ var IA = function () {
 
     return self
 }
-
-
-
 
 
 // HELPERS
