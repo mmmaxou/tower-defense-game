@@ -49,8 +49,8 @@ var User = function (socket) {
     self.socket = socket
     self.id = socket.id
     self.hall = Hall(self.id)
-    self.score = 10
-    self.upgradePoint = 10
+    self.score = 0
+    self.upgradePoint = 0
     self.tree = Tree()
 
     self.deployUpgrade = function (upgrade) {
@@ -176,6 +176,7 @@ User.list = {}
 User.onConnect = function (socket) {
     console.log("User " + socket.id.toFixed(2) + " connected")
     var user = User(socket)
+    new IA()
 
     socket.on('requireUpgrades', function () {
         var upgrades = user.getUpgrades()
@@ -221,7 +222,7 @@ var Tree = function () {
         module: "Mod_lifeManagement",
         options: {
             hall: {
-                hpMax: 5
+                hpMax: 25
             },
             minion: {
                 hpMax: 3
@@ -346,6 +347,9 @@ var Hall = function (id) {
     self.killed = false
     self.position = 0
     self.entityType = "hall"
+    self.user = function () {
+        return User.list[self.id]
+    }
 
     self.module = []
 
@@ -468,14 +472,19 @@ var Minion = function (parent) {
     self.id = rand(0, 100)
     self.x = parent.x
     self.y = parent.y
-    self.parentId = parent.id
+    self.hallId = parent.id
     self.spdX = 0
     self.spdY = 0
     self.speed = 2
     self.size = 1
     self.entityType = "minion"
-    self.parent = function () {
-        return Hall.list[self.parentId]
+    self.hall = function () {
+        return Hall.list[self.hallId]
+    }
+    self.user = function () {
+        if (!self.hall()) return
+        var id = self.hall().id
+        return User.list[id]
     }
 
     //randomize spawn position
@@ -527,7 +536,7 @@ var Minion = function (parent) {
         if (self.toRemove) {
             self.delete()
         }
-        if (self.parent() == undefined) {
+        if (self.hall() == undefined) {
             self.delete()
         }
     }
@@ -551,11 +560,14 @@ var Minion = function (parent) {
     self.delete = function () {
 
         self.toRemove = true;
-        if (self.parent()) {
-            var index = self.parent().minions.findIndex(minion => minion.id == self.id)
-            self.parent().minions.splice(index)
-            //console.log(self.parent().minions)
+        if (self.hall()) {
+            var index = self.hall().minions.findIndex(minion => minion.id == self.id)
+            self.hall().minions.splice(index)
+            //console.log(self.hall().minions)
         }
+        self.targettedBy.forEach(function (e) {
+            e.target = null
+        })
 
         removePack.minion.push(self.id)
         Minion.list[self.id] = undefined
@@ -604,6 +616,7 @@ var Modules = {
         self.canCounterAttack = true || options.canCounterAttack
         self.counterAttackRange = options.counterAttackRange || 4
         self.killReward = 1
+        self.targettedBy = []
 
         var super_update = self.update
         self.getAttacked = function (attacker) {
@@ -631,6 +644,9 @@ var Modules = {
             }
         }
         self.getDamage = function (attacker) {
+            self.getKilled(attacker)
+        }
+        self.getKilled = function (attacker) {
             if ('getKillReward' in attacker)
                 attacker.getKillReward(self)
             self.delete()
@@ -647,9 +663,7 @@ var Modules = {
         self.getDamage = function (attacker) {
             self.hp -= 1
             if (self.hp <= 0) {
-                if ('getKillReward' in attacker)
-                    attacker.getKillReward(self)
-                self.delete()
+                self.getKilled(attacker)
             }
         }
         self.lifeManagement_getUpdatePack = self.getUpdatePack
@@ -703,7 +717,11 @@ var Modules = {
             self.target.getAttacked(self)
         }
         self.getKillReward = function (ennemyKilled) {
-            //console.log(ennemyKilled.killReward)
+            if (self.user()) {
+                var reward = ennemyKilled.killReward
+                self.user().changeScore(reward)
+                self.user().changeUpgradePoint(reward)
+            }
         }
         self.hasTarget = function () {
             if (!self.target) {
@@ -720,7 +738,7 @@ var Modules = {
 
             for (var h in Hall.list) {
                 var hall = Hall.list[h]
-                if (hall.id != self.parent().id) {
+                if (hall.id != self.hall().id) {
                     self.ennemyHall = hall.id
                 }
             }
@@ -738,7 +756,7 @@ var Modules = {
 
             for (var i in Minion.list) {
                 var minion = Minion.list[i]
-                if (minion.parent() != self.parent()) {
+                if (minion.hall() != self.hall()) {
                     var d = self.getDistance(minion)
                     if (min == undefined) {
                         found = minion;
@@ -768,6 +786,13 @@ var Modules = {
 
             if (!self.findEnnemyMinion()) {
                 self.target = self.getEnnemyHall()
+            }
+            // try to add self in target
+            if (!self.target.targettedBy.some(function (e) {
+                    return e.id == self.id
+                })) {
+                self.target.targettedBy.push(self)
+
             }
 
         }
@@ -931,11 +956,23 @@ io.sockets.on('connection', function (socket) {
         }
     })
     socket.on('evalServer', function (data) {
-        if (!DEBUG)
+        if (!DEBUG) {
             return
-        var res = eval(data)
-        console.log(eval(data))
-        socket.emit('evalAnswer', res)
+        }
+        var res;
+        try {
+            res = eval(data)
+            console.log(res)
+        } catch (err) {
+            res = "error"
+            throw err
+        }
+
+        try {
+            //            socket.emit('evalAnswer', res)
+        } catch (err) {
+            console.log(err)
+        }
 
     })
 
@@ -992,7 +1029,13 @@ setInterval(function () {
 }, 1000 / 25)
 
 // IA 
-var ennemyHall = Hall(rand())
+var IA = function () {
+    var self = {}
+
+    self.hall = Hall(rand())
+
+    return self
+}
 
 
 

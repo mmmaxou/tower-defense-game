@@ -218,11 +218,11 @@ var Modules = {
                     } else {
                         ctx.fillStyle = 'grey'
                     }
-                    var GUTTER = 5
+                    var GUTTER = 0
 
                     var barWidth = self.size * 3 // Taille propre
                     barWidth = barWidth * 2 // Augmente la taille pour depasser de l'affichage
-                    barWidth = barWidth + GUTTER * self.hpMax
+                    barWidth = barWidth + (GUTTER * self.hpMax)
                     //augmente la taille pour la gouttiere
 
 
@@ -232,7 +232,6 @@ var Modules = {
 
                     var deltaX = ((x + GUTTER) * (i - 1))
                     deltaX -= barWidth / 2
-                    deltaX -= self.size
                     var deltaY = -(self.size * 2) - 10;
 
                     // Affichage
