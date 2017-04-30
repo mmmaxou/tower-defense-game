@@ -53,6 +53,15 @@ var Core = function () {
         toRemove: false,
         module: [],
     }
+    self.getModule = function (name) {
+        var mod
+        self.module.forEach(function (module) {
+            if (module.name == name) {
+                mod = module
+            }
+        })
+        return mod
+    }
     self.updateMod = function () {
         for (var m in self.module) {
             var module = self.module[m]
@@ -69,7 +78,7 @@ var Core = function () {
     }
     self.validKeys = []
     self.keyActive = {}
-    self.getPointOnBody = function (data) {
+    self.getPosOnBody = function (data) {
         var dist = self.getDistance(data)
         return dist <= self.size * 3 ? true : false
     }
@@ -78,8 +87,18 @@ var Core = function () {
             return e == data.key
         })
     }
+    self.assignKey = function (data) {
+        self.validKeys.forEach(function (key) {
+            if (data.key == key) {
+                self.keyActive[key] = data.state
+            }
+        })
+    }
     return self
 }
+
+
+/* ############ USER ############# */
 
 var User = function (socket) {
     var self = {}
@@ -87,7 +106,7 @@ var User = function (socket) {
     self.id = socket.id
     self.hall = Hall(self.id)
     self.score = 0
-    self.upgradePoint = 0
+    self.upgradePoint = 500
     self.tree = Tree()
 
     self.deployUpgrade = function (upgrade) {
@@ -214,7 +233,7 @@ var User = function (socket) {
 
     self.validKeys = []
     self.keyActive = {}
-    self.getPointOnBody = function (data) {
+    self.getPosOnBody = function (data) {
         var dist = self.getDistance(data)
         return dist <= self.size * 3 ? true : false
     }
@@ -271,6 +290,9 @@ User.update = function () {
     }
 }
 
+
+/* ############ TREE ############# */
+
 var Tree = function () {
     var self = {}
 
@@ -278,6 +300,7 @@ var Tree = function () {
     self.upgrades.lifeManagement = Upgrade({
         cost: 25,
         module: "Mod_lifeManagement",
+        display: "Vitality",
         options: {
             hall: {
                 hpMax: 25
@@ -290,11 +313,25 @@ var Tree = function () {
     self.upgrades.moveable = Upgrade({
         cost: 10,
         module: "Mod_moveable",
+        display: "Moveable Hall",
         options: {
             hall: {}
         }
-
     })
+    self.upgrades.targetManagement = Upgrade({
+        cost: 25,
+        module: "Mod_targetManagement",
+        display: "Choose your target",
+        options: {
+            hall: {
+                target: null
+            },
+            minion: {
+                target: null
+            }
+        }
+    })
+
 
     self.addUpgrade = function (upgradeName) {
         self.upgrades[upgradeName].bought = true
@@ -314,11 +351,11 @@ var Tree = function () {
 
     return self;
 }
-
 var Upgrade = function (options) {
     var self = {
         cost: options.cost || 1,
         module: options.module,
+        display: options.display || options.module,
         name: options.module.substring(4),
         available: true,
         bought: false,
@@ -345,7 +382,6 @@ var Entity = function () {
     }
     return self
 }
-
 var Building = function () {
     var self = Core()
     self.cooldown = 25
@@ -366,6 +402,10 @@ var Building = function () {
     }
     return self
 }
+
+
+/* ############ HALL ############# */
+
 var Hall = function (id) {
     console.log("creating hall : " +
         id.toFixed(2))
@@ -383,6 +423,16 @@ var Hall = function (id) {
 
     self.minions = []
     self.minionsModules = []
+    self.getMinionsModule = function (name) {
+        var mod
+        self.minionsModules.forEach(function (module) {
+            if (module.name == name) {
+                mod = module
+            }
+        })
+        return mod
+    }
+
     self.super_update = self.update
 
     // Declare modules
@@ -437,11 +487,12 @@ var Hall = function (id) {
 
     self.handleKey = function (data) {
         if (!self.isValidKey(data)) {
-            self.minions.forEach(function (minion) {
-                minion.handleKey(data)
-            })
             return
         }
+        self.minions.forEach(function (minion) {
+            minion.handleKey(data)
+        })
+        self.assignKey(data)
     }
     self.checkRemove = function () {
         if (self.toRemove) {
@@ -511,6 +562,9 @@ Hall.update = function () {
     return pack
 }
 
+
+/* ############ MINION ############# */
+
 var Minion = function (parent) {
     var self = Entity()
     self.id = rand(0, 100)
@@ -520,7 +574,7 @@ var Minion = function (parent) {
     self.spdX = 0
     self.spdY = 0
     self.speed = 2
-    self.size = 1
+    self.size = 3
     self.entityType = "minion"
     self.hall = function () {
         return Hall.list[self.hallId]
@@ -588,6 +642,7 @@ var Minion = function (parent) {
             // Do something
             return
         }
+        self.assignKey(data)
     }
 
     self.getInitPack = function () {
@@ -659,6 +714,9 @@ Minion.update = function () {
     return pack
 }
 
+
+/* ############ MODULE ############# */
+
 var Modules = {
     Mod_getAttacked: function (parent, options = {}) {
         var self = parent
@@ -729,6 +787,7 @@ var Modules = {
             pack.hpMax = self.hpMax
             return pack
         }
+
         return self;
     },
     Mod_attack: function (parent, options = {}) {
@@ -740,13 +799,14 @@ var Modules = {
         self.target = null
         self.attackRange = options.attackRange || self.size * 3
 
+        var super_update = self.super_update
         self.update = function () {
             self.checkRemove()
 
             self.findTarget()
             self.moveToTarget()
 
-            self.super_update()
+            super_update()
         }
 
         self.getEnnemyHall = function () {
@@ -825,7 +885,6 @@ var Modules = {
 
         }
         self.findTarget = function () {
-
             if (!self.ennemyHall) {
                 self.findEnnemyHall()
             }
@@ -834,16 +893,31 @@ var Modules = {
             }
 
             if (!self.findEnnemyMinion()) {
-                self.target = self.getEnnemyHall()
+                self.setTarget(self.getEnnemyHall())
             }
             // try to add self in target
-            if (!self.target.targettedBy.some(function (e) {
-                    return e.id == self.id
-                })) {
-                self.target.targettedBy.push(self)
 
+
+        }
+        self.setTarget = function (target) {
+
+            if (!target) return
+
+            if (typeof (target) == "number") {
+                var tmp = Hall.list[target]
+                if (tmp == undefined) {
+                    tmp = Minion.list[target]
+                }
+                target = tmp
             }
 
+            self.target = target
+            if (!target.targettedBy.some(function (e) {
+                    return e.id == self.id
+                })) {
+                target.targettedBy.push(self)
+
+            }
         }
         self.targetInRange = function () {
             if (!self.target) return;
@@ -911,30 +985,26 @@ var Modules = {
     Mod_moveable: function (parent, options = {}) {
         var self = parent
 
-        self.validKeys.push('mousePos')
-        self.validKeys.push('click')
-
-        self.keyActive.mousePos = false
-        self.keyActive.click = false
-        self.followMouse = false
-
-        var super_handleKey = self.handleKey
-        self.handleKey = function (data) {
-            super_handleKey(data)
-
-            self.validKeys.forEach(function (key) {
-                if (data.key == key) {
-                    self.keyActive[key] = data.state
-                }
-            })
-
+        if (!self.validKeys.some(e => e == "mousePos")) {
+            self.validKeys.push('mousePos')
+        }
+        if (!self.validKeys.some(e => e == "click")) {
+            self.validKeys.push('click')
         }
 
-        self.super_update = self.update
+        if (!self.keyActive.mousePos) {
+            self.keyActive.mousePos = false
+        }
+        if (!self.keyActive.click) {
+            self.keyActive.click = false
+        }
+        self.followMouse = false
+
+        var super_update = self.update
         self.update = function () {
             self.updatePosition()
 
-            self.super_update()
+            super_update()
         }
         self.updatePosition = function () {
             if (self.keyActive.click && self.followMouse) {
@@ -944,7 +1014,7 @@ var Modules = {
 
             if (self.keyActive.click) {
                 var pos = self.keyActive.mousePos
-                if (self.getPointOnBody(pos)) {
+                if (self.getPosOnBody(pos)) {
                     self.followMouse = true
                 }
                 self.keyActive.click = false
@@ -957,6 +1027,87 @@ var Modules = {
                 self.y = pos.y
             }
         }
+
+        return self
+    },
+    Mod_targetManagement: function (parent, options = {}) {
+        var self = parent
+
+        self.canTargetHall = options.canTargetHall || true
+        self.canTargetMinion = options.canTargetMinion || true
+        self.targetLocked = false
+
+        if (options.target != null) {
+            self.setTarget(options.target)
+            self.targetLocked = true
+        }
+
+        if (!self.validKeys.some(e => e == "mousePos")) {
+            self.validKeys.push('mousePos')
+        }
+        if (!self.validKeys.some(e => e == "click")) {
+            self.validKeys.push('click')
+        }
+
+        if (!self.keyActive.mousePos) {
+            self.keyActive.mousePos = false
+        }
+        if (!self.keyActive.click) {
+            self.keyActive.click = false
+        }
+        var super_handleKey = self.handleKey
+        self.handleKey = function (data) {
+            super_handleKey(data)
+            if (self.keyActive.click) {
+                self.handleClick(data)
+            }
+        }
+        var super_findTarget = self.findTarget
+        self.findTarget = function () {
+            if (self.isTargetLocked()) {
+                return
+            }
+
+            super_findTarget()
+        }
+        self.isTargetLocked = function () {
+
+            if (!self.hasTarget()) {
+                return false
+            }
+            return self.targetLocked ? true : false
+
+        }
+
+        self.handleClick = function (data) {
+            if (!self.keyActive.click) return
+            if (self.canTargetHall) {
+                var pos = self.keyActive.mousePos
+                for (var i in Hall.list) {
+                    var hall = Hall.list[i]
+                    if (hall.getPosOnBody(pos) && self.entityType == "minion") {
+                        if (hall.id != self.hall().id) {
+                            self.setTarget(hall)
+                            self.targetLocked = true
+                            console.log(hall)
+                        }
+                    } else if (hall.getPosOnBody(pos) && self.entityType == "hall") {
+                        if (hall.id != self.id) {
+
+                            var mod = self.getMinionsModule("Mod_targetManagement")
+                            if (mod && mod.options.target != hall) {
+                                mod.options.target = hall.id
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        //        if (self.entityType == 'minion') {
+        //            console.log(self.hall().getMinionsModule("Mod_targetManagement"))
+        //            console.log(self.target)
+        //        }
 
         return self
     }
@@ -1129,7 +1280,9 @@ setInterval(function () {
 
 }, 1000 / 25)
 
-// IA 
+
+/* ############ IA ############# */
+
 var IA = function () {
     var self = {}
 

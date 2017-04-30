@@ -6,7 +6,13 @@ WIDTH = HEIGHT = 500;
 var validKeys = ['z', 'q', 's', 'd']
 
 // init
-var user = null
+var Img = {}
+Img.hall = new Image();
+Img.hall.src = 'build/images/hall.png'
+Img.minion = new Image();
+Img.minion.src = 'build/images/minion.png'
+
+
 var Core = function () {
     var self = {}
 
@@ -69,8 +75,8 @@ var User = function (initPack) {
 
         for (var i in self.upgrades) {
             var upgrade = self.upgrades[i]
-            var html = "<button class='upgrade btn' onclick='clickUpgrade(this)'>"
-            html += upgrade.name
+            var html = "<button class='upgrade btn btn-block' onclick='clickUpgrade(this)' data-upgrade='" + upgrade.name + "'>"
+            html += upgrade.display
             html += "<div class='tooltip'>"
             html += "<p>Cost : " + upgrade.cost + "</p>"
             if (upgrade.requirements != null) {
@@ -110,7 +116,7 @@ var User = function (initPack) {
     user = self
     return self
 }
-
+var user = null
 var Hall = function (initPack) {
     var self = Core()
     self.id = initPack.id
@@ -122,13 +128,26 @@ var Hall = function (initPack) {
 
     self.draw = function () {
         // Hall
-        ctx.fillStyle = 'black'
+        /*ctx.fillStyle = 'black'
         ctx.fillRect(
             self.x - 1 * self.size,
             self.y - 1 * self.size,
             3 * self.size,
             3 * self.size
+        )*/        
+        
+        var width = Img.hall.width
+        var height = Img.hall.height
+        
+        ctx.drawImage(Img.hall,
+            0, 0,
+            Img.hall.width, Img.hall.height,
+            self.x - 1 * self.size,
+            self.y - 1 * self.size,
+            width,
+            height
         )
+        
     }
     self.updateFromPack = function (pack) {
 
@@ -145,7 +164,6 @@ var Hall = function (initPack) {
     return self
 }
 Hall.list = {}
-
 var Minion = function (initPack) {
     var self = Core()
 
@@ -158,12 +176,25 @@ var Minion = function (initPack) {
 
     self.draw = function () {
         // Minion
-        ctx.fillStyle = 'blue'
+
+        /*ctx.fillStyle = 'blue'
         ctx.fillRect(
             self.x - 1 * self.size,
             self.y - 1 * self.size,
             3 * self.size,
             3 * self.size
+        )*/
+
+        var width = Img.minion.width
+        var height = Img.minion.height
+
+        ctx.drawImage(Img.minion,
+            0, 0,
+            Img.minion.width, Img.minion.height,
+            self.x - 1 * self.size,
+            self.y - 1 * self.size,
+            width,
+            height
         )
     }
 
@@ -394,7 +425,7 @@ $(document).ready(function () {
 })
 
 function clickUpgrade(e) {
-    var text = e.childNodes[0].textContent
+    var text = e.attributes["data-upgrade"].value
     user.buyUpgrade(text)
 }
 

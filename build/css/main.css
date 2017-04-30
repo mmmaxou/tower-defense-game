@@ -317,6 +317,9 @@ table {
   .btn.btn-close.closed:after {
     -webkit-transform: rotate(45deg);
             transform: rotate(45deg); }
+  .btn.btn-block {
+    display: block;
+    width: 100%; }
   .btn:hover {
     background-color: #7414a7;
     border-color: #7414a7; }
@@ -378,7 +381,8 @@ input, .btn {
       display: inline-block; }
 
 .upgrade {
-  cursor: pointer; }
+  cursor: pointer;
+  margin-bottom: 10px; }
   .upgrade .tooltip {
     display: none; }
   .upgrade:hover .tooltip {
