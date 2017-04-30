@@ -329,8 +329,8 @@ table {
   .hr.hr-padding {
     width: 80%; }
 
-input, .btn.btn-close {
-  height: 35px;
+input, .btn {
+  min-height: 35px;
   min-width: 35px;
   border: 1px solid #a3a3a3;
   border-radius: 5px;
@@ -338,7 +338,7 @@ input, .btn.btn-close {
   font-family: "Poppins", sans-serif;
   font-size: 300;
   padding: 0px 10px; }
-  input.block, .block.btn.btn-close {
+  input.block, .block.btn {
     display: inline-block; }
 
 .main {
@@ -376,6 +376,13 @@ input, .btn.btn-close {
       transition: all 200ms ease;
       content: '> ';
       display: inline-block; }
+
+.upgrade {
+  cursor: pointer; }
+  .upgrade .tooltip {
+    display: none; }
+  .upgrade:hover .tooltip {
+    display: block; }
 
 #chat-text {
   max-height: 60vh;

@@ -1,0 +1,9 @@
+.upgrade {
+    cursor: pointer;
+    .tooltip {
+        display: none;
+    }
+    &:hover .tooltip {
+        display: block;
+    }
+}

@@ -1,5 +1,5 @@
 socket = io.connect({
-    'reconnection': true,
+    'reconnection': false,
     'reconnectionDelay': 500,
     'reconnectionAttempts': 10
 })
@@ -97,7 +97,11 @@ socket.on('signUpResponse', function (data) {
 $('#chat form').on('submit', function (e) {
     e.preventDefault();
     var text = $('#chat input[type="text"]').val()
-    socket.emit('sendMsgToServer', text)
+    if (text.slice(0, 1) == "/") {
+        socket.emit('evalServer', text.slice(1))
+    } else {
+        socket.emit('sendMsgToServer', text)
+    }
 })
 socket.on('addToChat', function (data) {
     $('#chat-text').append('<p>' + data + '</p>')
@@ -120,6 +124,13 @@ function startGame() {
 
     $('.connection').fadeOut()
     $('.game').fadeIn()
+
+    $('.btn-close').each(function () {
+        if ($(this).hasClass('.closed')) {
+            return
+        }
+        $(this).click()
+    })
 
     socket.emit('startGame')
 }
@@ -148,7 +159,7 @@ var clickOnLeftWrapper = function () {
     } else {
         $('#left-wrapper').css('visibility', 'visible')
         close.toggleClass('closed')
-        $('#left-wrapper .wrapper-title span').text("Pattern")
+        $('#left-wrapper .wrapper-title span').text("Upgrades")
     }
 
     $('#left-wrapper .wrapper-title').toggleClass("changed")

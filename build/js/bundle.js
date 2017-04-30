@@ -1,124 +1,158 @@
 var ctx = document.getElementById("ctx").getContext("2d");
 ctx.font = '30px Arial';
 
-
 WIDTH = HEIGHT = 500;
 
 var validKeys = ['z', 'q', 's', 'd']
 
 // init
-var Player = function (initPack) {
+var user = null
+var Core = function () {
     var self = {}
-    self.id = initPack.id
-    self.number = initPack.number
-    self.x = initPack.x
-    self.y = initPack.y
-    self.hp = initPack.hp
-    self.hpMax = initPack.hpMax
-    self.score = initPack.score
-    self.upgradePoint = initPack.upgradePoint
 
-    self.module = ['demon']
-
-    self.draw = function () {
-        // player itself
-        ctx.fillStyle = 'black'
-        ctx.fillRect(self.x - 1, self.y - 1, 3, 3)
-    }
-
-    self.updateFromPack = function (pack) {
-        if (pack.x !== undefined)
-            self.x = pack.x
-        if (pack.y !== undefined)
-            self.y = pack.y
-        if (pack.hp !== undefined)
-            self.hp = pack.hp
-        if (pack.score !== undefined) {
-            self.score = pack.score
-            self.display.score()
-        }
-        if (pack.upgradePoint !== undefined) {
-            self.upgradePoint = pack.upgradePoint
-            self.display.upgradePoint()
-
-        }
-    }
-
-    self.display = {
-        score: function () {
-            $('#score').text(self.score)
-        },
-        upgradePoint: function () {
-            $('#upgrade-point').text(self.upgradePoint)
-        }
-    }
+    self.module = {}
 
     self.updateMod = function () {
-
-        self.module.forEach(function (e) {
-
-            if (e == 'demon') {
-                self = Demon(self)
+        for (var m in self.module) {
+            var module = self.module[m]
+            if (Modules[module.name]) {
+                if (!module.deployed) {
+                    self = Modules[module.name](self, module.options)
+                    module.deployed = true
+                }
             }
-        })
-
-        console.log(self)
+        }
     }
-    self.updateMod()
-    Player.list[self.id] = self
+    self.resetMod = function () {
+        for (var i in self.module) {
+            var module = self.module[i]
+            module.deployed = false
+        }
+    }
     return self
 }
-Player.list = {}
+var User = function (initPack) {
+    var self = {}
+    self.id = initPack.id
+    self.score = initPack.score
+    self.upgradePoint = initPack.upgradePoint
+    self.upgrades = initPack.upgrades
 
-var Demon = function (playerSelf) {
+    self.requireUpgrades = function () {
+        socket.emit('requireUpgrades')
+        socket.on('upgrades', function (data) {
+            self.upgrades = data
+            self.drawUpgrades()
+            return
+        })
+    }
+    self.buyUpgrade = function (upgrade) {
+        socket.emit('buyUpgrade', upgrade)
+        socket.on('buyResult', function (data) {
 
-    var self = playerSelf
-
-    self.invulnerable = false
-    self.demonState = false
+        })
+    }
 
     self.draw = function () {
+        $('#upgrade-point').text(self.upgradePoint)
+        $('#score').text(self.score)
+    }
+    self.draw()
+    self.drawUpgrades = function () {
+        $('#available, #bought').empty()
 
-        ctx.fillStyle = 'black'
+        for (var i in self.upgrades) {
+            var upgrade = self.upgrades[i]
+            var html = "<button class='upgrade btn' onclick='clickUpgrade(this)'>"
+            html += upgrade.name
+            html += "<div class='tooltip'>"
+            html += "<p>Cost : " + upgrade.cost + "</p>"
+            if (upgrade.requirements != null) {
+                html += "<p>Requirements"
+                upgrade.requirements.forEach(function (r) {
+                    html += r
+                })
+                html += "</p>"
+            }
+            html += "</div>"
+            html += "</button>"
 
-        if (self.demonState) {
-            ctx.fillRect(self.x - 3, self.y - 3, 9, 9)
-        } else {
-            ctx.fillRect(self.x - 1, self.y - 1, 3, 3)
+            if (upgrade.available == true) {
+                $('#available').append(html)
+            }
+            if (upgrade.bought == true) {
+                $('#bought').append(html)
+            }
         }
 
     }
-    var super_updateFromPack = self.updateFromPack;
+    self.drawUpgrades()
     self.updateFromPack = function (pack) {
-        if (pack.invulnerable !== undefined)
-            self.invulnerable = pack.invulnerable
-        if (pack.demonState !== undefined)
-            self.demonState = pack.demonState
-        super_updateFromPack(pack)
+        if (pack.score !== undefined)
+            self.score = pack.score
+        if (pack.upgradePoint !== undefined)
+            self.upgradePoint = pack.upgradePoint
+        if (pack.upgrades !== undefined) {
+            self.upgrades = pack.upgrades
+        }
+
+        self.draw()
+        self.drawUpgrades()
     }
 
-    //helper update
-    validKeys.push(' ')
-
-
+    console.log(self)
+    user = self
     return self
-
 }
 
 var Hall = function (initPack) {
-    var self = {}
+    var self = Core()
     self.id = initPack.id
     self.x = initPack.x
     self.y = initPack.y
-    self.hp = initPack.hp
-    self.hpMax = initPack.hpMax
     self.size = 10
 
-    self.module = ['']
+    self.module = initPack.module
 
     self.draw = function () {
         // Hall
         ctx.fillStyle = 'black'
+        ctx.fillRect(
+            self.x - 1 * self.size,
+            self.y - 1 * self.size,
+            3 * self.size,
+            3 * self.size
+        )
+    }
+    self.updateFromPack = function (pack) {
+
+        if (pack.x !== undefined)
+            self.x = pack.x
+        if (pack.y !== undefined)
+            self.y = pack.y
+
+    }
+
+    self.resetMod()
+    self.updateMod()
+    Hall.list[self.id] = self
+    return self
+}
+Hall.list = {}
+
+var Minion = function (initPack) {
+    var self = Core()
+
+    self.id = initPack.id
+    self.x = initPack.x
+    self.y = initPack.y
+    self.size = 1
+
+    self.module = initPack.module
+
+    self.draw = function () {
+        // Minion
+        ctx.fillStyle = 'blue'
         ctx.fillRect(
             self.x - 1 * self.size,
             self.y - 1 * self.size,
@@ -133,62 +167,131 @@ var Hall = function (initPack) {
             self.x = pack.x
         if (pack.y !== undefined)
             self.y = pack.y
-        if (pack.hp !== undefined)
-            self.hp = pack.h
 
     }
-    self.updateMod = (function () {
 
-        self.module.forEach(function (e) {
+    self.resetMod()
+    self.updateMod()
 
-            if (e == 'demon') {
+    //    console.log(self)
 
-                //Do something 
-
-            }
-        })
-    })()
-    Hall.list[self.id] = self
+    Minion.list[self.id] = self
     return self
 }
-Hall.list = {}
+Minion.list = {}
 
+var Modules = {
+    Mod_lifeManagement: function (parent, pack) {
+
+        var self = parent
+
+        //        console.log(pack)
+        self.hpMax = pack.hpMax
+        self.hp = pack.hp || self.hpMax
+
+        super_draw = self.draw
+        self.draw = function () {
+            super_draw()
+            ctx.fillStyle = 'green'
+            for (var i = 1; i <= self.hpMax; i++) {
+                if (i <= self.hp) {
+                    ctx.fillStyle = 'green'
+                } else {
+                    ctx.fillStyle = 'grey'
+                }
+                var barWidth = self.size * 3 // Taille propre
+                barWidth = barWidth * 2 // Augmente la taille pour depasser de l'affichage
+
+
+                var x = barWidth
+                x = x / self.hpMax
+                var y = 5;
+
+                var deltaX = (x * i - 1) - barWidth / 2 - self.size;
+                var deltaY = -self.size * 2 - 4;
+
+                // Affichage
+                ctx.fillRect(
+                    self.x + deltaX,
+                    self.y + deltaY,
+                    x,
+                    y
+                )
+                //console.log(barWidth, deltaX, deltaY, x, y)
+
+            }
+        }
+        return self;
+    }
+}
 
 var selfId = null;
 socket.on('init', function (data) {
     if (data.selfId)
         selfId = data.selfId
-    for (var i = 0; i < data.player.length; i++) {
-        new Player(data.player[i])
-        new Hall(data.hall[i])
-    }
-})
+    if (data.hall)
+        for (var i = 0; i < data.hall.length; i++) {
+            new Hall(data.hall[i])
+        }
+    if (data.minion)
+        for (var i = 0; i < data.minion.length; i++) {
+            new Minion(data.minion[i])
+        }
 
+})
+socket.on('initUser', function (data) {
+    new User(data.user)
+})
 // update
 socket.on('update', function (data) {
-    for (var i = 0; i < data.player.length; i++) {
-        var pack = data.player[i]
-        var p = Player.list[pack.id]
-        if (p && pack) {
-            p.updateFromPack(pack)
+
+    if (data.hall)
+        for (var i = 0; i < data.hall.length; i++) {
+            var pack = data.hall[i]
+            var h = Hall.list[pack.id]
+            if (h && pack) {
+                h.updateFromPack(pack)
+            }
         }
-    }
-    for (var i = 0; i < data.hall.length; i++) {
-        var pack = data.hall[i]
-        var h = Hall.list[pack.id]
-        if (h && pack) {
-            h.updateFromPack(pack)
+    if (data.minion)
+        for (var i = 0; i < data.minion.length; i++) {
+            var pack = data.minion[i]
+            var m = Minion.list[pack.id]
+            if (m && pack) {
+                m.updateFromPack(pack)
+            }
         }
-    }
+    if (data.user)
+        user.updateFromPack(data.user)
+
 })
+socket.on('hallModule', function (data) {
+    var hall = Hall.list[data.id]
+    hall.module[data.module.name] = {
+        deployed: false,
+        options: data.module.option,
+        name: data.module.name,
+    }
+    hall.updateMod()
+})
+socket.on('minionModule', function (data) {
+    var minion = Minion.list[data.id]
+    minion.module[data.module.name] = {
+        deployed: false,
+        options: data.module.option,
+        name: data.module.name,
+    }
+    minion.updateMod()
+})
+
 
 //remove
 socket.on('remove', function (data) {
-    for (var i = 0; i < data.player.length; i++) {
-        delete Player.list[data.player[i]]
-    }
     for (var i = 0; i < data.hall.length; i++) {
         delete Hall.list[data.hall[i]]
+    }
+    for (var i = 0; i < data.minion.length; i++) {
+        delete Minion.list[data.minion[i]]
     }
 })
 
@@ -196,23 +299,18 @@ var drawMap = function () {
     ctx.fillStyle = 'white'
     ctx.fillRect(0, 0, 500, 500)
 }
-var drawScore = function () {
-    if (!selfId) return
-    ctx.fillStyle = 'white'
-    ctx.fillText(Player.list[selfId].score, 0, 30)
-}
 
+// LOOP
 setInterval(function () {
     if (!selfId)
         return
 
     ctx.clearRect(0, 0, 500, 500)
     drawMap();
-    drawScore();
-    for (var i in Player.list)
-        Player.list[i].draw()
     for (var i in Hall.list)
         Hall.list[i].draw()
+    for (var i in Minion.list)
+        Minion.list[i].draw()
 }, 1000 / 25)
 
 $(document)
@@ -233,6 +331,11 @@ $(document)
             state: false
         })
     })
+
+function clickUpgrade(e) {
+    var text = e.childNodes[0].textContent
+    user.buyUpgrade(text)
+}
 
 function isValidKey(e) {
     return validKeys.some(elt => elt == e)

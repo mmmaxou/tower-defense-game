@@ -1,25 +1,25 @@
 .btn {
-	background-color: $color-default;
-	color: white;
-	cursor: pointer;
-	font-weight: $font-light;
-	&.btn-main {
-		background-color: $color-main;
-		border-color: $color-main;
-	}
-	&.btn-close {
-		@extend input;
-		&:after {
-			content: '✖';
-			display: inline-block;
-			transition: transform 400ms ease;
-		}
-		&.closed:after {
-			transform: rotate(45deg);
-		}
-	}
-	&:hover {
-		background-color: $color-main;
-		border-color: $color-main;
-	}
+    background-color: $color-default;
+    color: white;
+    cursor: pointer;
+    font-weight: $font-light;
+    @extend input;
+    &.btn-main {
+        background-color: $color-main;
+        border-color: $color-main;
+    }
+    &.btn-close {
+        &:after {
+            content: '✖';
+            display: inline-block;
+            transition: transform 400ms ease;
+        }
+        &.closed:after {
+            transform: rotate(45deg);
+        }
+    }
+    &:hover {
+        background-color: $color-main;
+        border-color: $color-main;
+    }
 }
